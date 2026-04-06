@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:3000/api/queue';
+const API_BASE = '/api/queue';
 
 document.addEventListener('DOMContentLoaded', () => {
     const inputSection = document.getElementById('input-section');

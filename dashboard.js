@@ -1,7 +1,7 @@
 let currentPeople = [];
 let queues = [];
 let currentFilter = 'all';
-const API_BASE = 'http://localhost:3000/api/queue';
+const API_BASE = '/api/queue';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Logout Logic
