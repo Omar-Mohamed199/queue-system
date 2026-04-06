@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اعرف دورك</title>
+    <!-- SEO and Best Practices -->
+    <meta name="description" content="نظام تتبع الطوابير - اعرف دورك ووقت الانتظار المتوقع">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <main class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="icon-container">
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+            </div>
+            <h1>اعرف دورك</h1>
+        </header>
+
+        <!-- Input Section -->
+        <section id="input-section" class="card active">
+            <p class="description">ادخل رقمك عشان تعرف دورك ووقت الانتظار المتوقع</p>
+            <div class="input-group">
+                <input type="number" id="queue-number" placeholder="ادخل رقمك" aria-label="ادخل رقمك">
+            </div>
+            <button id="check-status-btn" class="primary-btn">اعرض حالتي</button>
+        </section>
+
+        <!-- Result Section -->
+        <section id="result-section" class="card hidden">
+            <div class="result-details">
+                <div class="result-item highlight">
+                    <span class="label">رقمك</span>
+                    <span class="value" id="res-number">#123</span>
+                </div>
+                <div class="result-item">
+                    <span class="label">عدد اللي قبلك</span>
+                    <span class="value" id="res-ahead">5</span>
+                </div>
+                <div class="result-item">
+                    <span class="label">الوقت المتوقع</span>
+                    <span class="value" id="res-time">10 دقيقة</span>
+                </div>
+            </div>
+
+            <div class="status-container">
+                <div class="status-text" id="status-text">استنى شوية</div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="progress-bar"></div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button id="reset-btn" class="secondary-btn">ادخل رقم تاني</button>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <a href="login.html" class="admin-link">المسؤول</a>
+        </footer>
+    </main>
+    <script src="script.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم المسؤول</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="dashboard.css">
+    <script>
+        if (localStorage.getItem('isLoggedIn') !== 'true') {
+            window.location.href = 'login.html';
+        }
+    </script>
+</head>
+
+<body>
+    <div class="dashboard-wrapper">
+        <header class="dashboard-header">
+            <div class="header-container">
+                <div class="logo">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="icon">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                    <h1>لوحة تحكم المسؤول</h1>
+                </div>
+                <button type="button" id="logout-btn" class="logout-btn btn-text">تسجيل الخروج</button>
+            </div>
+        </header>
+
+        <main class="dashboard-main">
+            <div class="grid-layout">
+                <!-- Sidebar components -->
+                <div class="side-panel">
+                    <!-- Add Queue Section -->
+                    <section class="card add-customer-card">
+                        <div class="card-header">
+                            <h2>إضافة زبون</h2>
+                        </div>
+                        <div class="card-body">
+                            <form id="add-queue-form" onsubmit="event.preventDefault(); submitQueue();">
+                                <div class="input-wrapper">
+                                    <label for="queue-id">رقم الدور</label>
+                                    <input type="text" id="queue-id" placeholder="ادخل رقم الدور" required>
+                                </div>
+                                <div class="people-section">
+                                    <h3 class="section-title">الأشخاص</h3>
+                                    <div class="input-wrapper">
+                                        <label for="person-name">اسم الشخص</label>
+                                        <input type="text" id="person-name" placeholder="ادخل اسم الشخص">
+                                    </div>
+                                    <div class="input-wrapper">
+                                        <label for="person-phone">رقم الهاتف</label>
+                                        <input type="text" id="person-phone" placeholder="ادخل رقم الهاتف">
+                                    </div>
+                                    <button type="button" class="btn btn-secondary" onclick="addPerson()">إضافة
+                                        شخص</button>
+
+                                    <ul id="people-list" class="people-list">
+                                        <!-- Added people -->
+                                    </ul>
+                                </div>
+                                <button type="submit" class="btn btn-primary" style="margin-top: 16px;">إضافة
+                                    الدور</button>
+                            </form>
+                        </div>
+                    </section>
+
+                    <!-- Settings Section -->
+                    <section class="card settings-card">
+                        <div class="card-header">
+                            <h2>الإعدادات</h2>
+                        </div>
+                        <div class="card-body">
+                            <form id="settings-form" onsubmit="event.preventDefault();">
+                                <div class="input-wrapper">
+                                    <label for="avg-time">متوسط الوقت لكل زبون (بالدقائق)</label>
+                                    <input type="number" id="avg-time" placeholder="مثال: 5" value="5" required>
+                                </div>
+                                <button type="submit" class="btn btn-secondary">حفظ</button>
+                            </form>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Main Queue List -->
+                <div class="main-panel">
+                    <section class="card queue-card">
+                        <div class="card-header queue-header-flex">
+                            <h2>قائمة الانتظار</h2>
+
+                            <div class="filters-group" id="filter-buttons">
+                                <button class="filter-btn active" data-filter="all">الكل</button>
+                                <button class="filter-btn" data-filter="waiting">منتظر</button>
+                                <button class="filter-btn" data-filter="working">قيد العمل</button>
+                                <button class="filter-btn" data-filter="done">تم</button>
+                            </div>
+                        </div>
+                        <div class="card-body" style="padding: 0;">
+                            <div class="table-responsive">
+                                <table class="queue-table">
+                                    <thead>
+                                        <tr>
+                                            <th>الترتيب</th>
+                                            <th>رقم الدور</th>
+                                            <th>الأشخاص</th>
+                                            <th>الحالة</th>
+                                            <th>إجراء</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="queue-body">
+                                        <!-- Rendered dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+            </div>
+        </main>
+    </div>
+    <script src="dashboard.js"></script>
+</body>
+
+</html>
