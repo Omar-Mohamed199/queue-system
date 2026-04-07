@@ -21,28 +21,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusText = document.getElementById('status-text');
     const progressBar = document.getElementById('progress-bar');
     
-    // Check Status
-    checkBtn.addEventListener('click', async () => {
-        const numberInput = queueInput.value.trim();
-        if(!numberInput) {
-            queueInput.focus();
-            return;
+    let currentNumber = null;
+    let pollInterval = null;
+
+    async function fetchQueueData(isInitial) {
+        if (!currentNumber) return;
+
+        if (isInitial) {
+            checkBtn.textContent = 'جاري التحميل...';
+            checkBtn.disabled = true;
         }
-        
-        checkBtn.textContent = 'جاري التحميل...';
-        checkBtn.disabled = true;
 
         try {
             const res = await fetch(API_BASE);
             const queues = await res.json();
             
-            // Find user by Queue Number (note: db field is queueNumber)
-            const targetQIndex = queues.findIndex(q => q.queueNumber === numberInput);
+            const targetQIndex = queues.findIndex(q => q.queueNumber === currentNumber);
             if (targetQIndex === -1) {
-                alert('الرقم غير موجود');
-                checkBtn.textContent = 'اعرض حالتي';
-                checkBtn.disabled = false;
-                queueInput.value = '';
+                if (isInitial) {
+                    alert('الرقم غير موجود');
+                    checkBtn.textContent = 'اعرض حالتي';
+                    checkBtn.disabled = false;
+                    queueInput.value = '';
+                    currentNumber = null;
+                } else {
+                    // Queue deleted or not found anymore, reset screen
+                    resetScreen();
+                }
                 return;
             }
             
@@ -96,30 +101,58 @@ document.addEventListener('DOMContentLoaded', () => {
                  }
             }
             
-            resNumber.textContent = `#${numberInput}`;
+            resNumber.textContent = `#${currentNumber}`;
             resAhead.textContent = targetQ.status === 'done' || targetQ.status === 'working' ? '0' : aheadCount;
             resTime.textContent = time > 0 ? formatTime(time) : 'جاهز';
             statusText.textContent = status;
             
-            inputSection.classList.remove('active');
-            inputSection.classList.add('hidden');
-            resultSection.classList.remove('hidden');
-            resultSection.classList.add('active');
-            
-            setTimeout(() => {
+            if (isInitial) {
+                inputSection.classList.remove('active');
+                inputSection.classList.add('hidden');
+                resultSection.classList.remove('hidden');
+                resultSection.classList.add('active');
+                
+                setTimeout(() => {
+                    progressBar.style.width = `${progress}%`;
+                }, 100);
+            } else {
                 progressBar.style.width = `${progress}%`;
-            }, 100);
+            }
             
         } catch (e) {
             console.error('Failed to connect to API', e);
-            alert('يوجد خطأ في الاتصال بالخادم. يرجى المحاولة لاحقاً');
+            if (isInitial) {
+                alert('يوجد خطأ في الاتصال بالخادم. يرجى المحاولة لاحقاً');
+            }
         } finally {
-            checkBtn.textContent = 'اعرض حالتي';
-            checkBtn.disabled = false;
+            if (isInitial) {
+                checkBtn.textContent = 'اعرض حالتي';
+                checkBtn.disabled = false;
+            }
         }
+    }
+
+    // Check Status
+    checkBtn.addEventListener('click', () => {
+        const numberInput = queueInput.value.trim();
+        if(!numberInput) {
+            queueInput.focus();
+            return;
+        }
+        
+        currentNumber = numberInput;
+        fetchQueueData(true);
+        
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(() => fetchQueueData(false), 5000);
     });
     
-    resetBtn.addEventListener('click', () => {
+    function resetScreen() {
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
+        currentNumber = null;
         queueInput.value = '';
         progressBar.style.width = '0%';
         
@@ -127,7 +160,9 @@ document.addEventListener('DOMContentLoaded', () => {
         resultSection.classList.add('hidden');
         inputSection.classList.remove('hidden');
         inputSection.classList.add('active');
-    });
+    }
+
+    resetBtn.addEventListener('click', resetScreen);
     
     queueInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {

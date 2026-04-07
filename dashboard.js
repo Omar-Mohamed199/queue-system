@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load Queues from API
     fetchQueues();
+    setInterval(fetchQueues, 5000);
     
     // Average time settings still use localStorage as it's client-side arbitrary logic.
     const timeInput = document.getElementById('avg-time');
