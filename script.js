@@ -48,23 +48,31 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const targetQ = queues[targetQIndex];
             
+            const storedTime = localStorage.getItem('avgTime') || 5;
+            const avgTime = parseInt(storedTime, 10);
+            
             let aheadCount = 0;
-            // With arrays coming natively from server based on created/sorting order correctly
-            // Index 0 sits at the front.
-            // People ahead are previous unserved instances
+            let time = 0; // Total calculated time
+            
             if (targetQ.status !== 'done' && targetQ.status !== 'working') {
+                const now = Date.now();
                 for (let i = 0; i < targetQIndex; i++) {
-                    if (queues[i].status !== 'done') {
+                    const qAhead = queues[i];
+                    if (qAhead.status === 'working') {
                         aheadCount++;
+                        let remaining = avgTime;
+                        if (qAhead.startedAt) {
+                            const diffMs = now - new Date(qAhead.startedAt).getTime();
+                            const diffMins = Math.floor(diffMs / 60000);
+                            remaining = Math.max(0, avgTime - diffMins);
+                        }
+                        time += remaining;
+                    } else if (qAhead.status === 'waiting') {
+                        aheadCount++;
+                        time += avgTime;
                     }
                 }
             }
-            
-            // User-side still keeps arbitrary time setting (or we could fetch if we created a settings API)
-            // But preserving scope, localStorage for avgTime fits the instructions which heavily prioritized replacing table data
-            const storedTime = localStorage.getItem('avgTime') || 5;
-            const avgTime = parseInt(storedTime, 10);
-            const time = aheadCount * avgTime; 
             
             let progress = 100;
             let status = '';
