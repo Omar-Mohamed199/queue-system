@@ -38,6 +38,12 @@ router.post('/', async (req, res) => {
 // PUT update status or data
 router.put('/:id', async (req, res) => {
     try {
+        if (req.body.status === 'working') {
+            req.body.startedAt = new Date();
+        } else if (req.body.status === 'waiting') {
+            req.body.startedAt = null;
+        }
+        
         const updatedQueue = await Queue.findByIdAndUpdate(req.params.id, req.body, { new: true });
         res.json(updatedQueue);
     } catch (err) {

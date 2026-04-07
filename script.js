@@ -1,5 +1,13 @@
 const API_BASE = '/api/queue';
 
+function formatTime(totalMinutes) {
+    if (totalMinutes < 60) return `${totalMinutes} دقيقة`;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (minutes === 0) return `${hours} ساعة`;
+    return `${hours} ساعة و ${minutes} دقيقة`;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const inputSection = document.getElementById('input-section');
     const resultSection = document.getElementById('result-section');
@@ -82,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             resNumber.textContent = `#${numberInput}`;
             resAhead.textContent = targetQ.status === 'done' || targetQ.status === 'working' ? '0' : aheadCount;
-            resTime.textContent = time > 0 ? `${time} دقيقة` : 'جاهز';
+            resTime.textContent = time > 0 ? formatTime(time) : 'جاهز';
             statusText.textContent = status;
             
             inputSection.classList.remove('active');

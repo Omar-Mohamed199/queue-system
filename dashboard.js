@@ -68,6 +68,9 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.style.backgroundColor = 'var(--secondary)';
         }, 2000);
     });
+
+    // Update progress times every minute
+    setInterval(updateProgressTimes, 60000);
 });
 
 async function fetchQueues() {
@@ -249,7 +252,11 @@ function renderQueues() {
             statusHtml = '<span class="badge badge-waiting">منتظر</span>';
             actionChangeHtml = `<button class="btn btn-action" onclick="changeStatus('${q._id}', 'working')">تغيير الحالة</button>`;
         } else if (q.status === 'working') {
-            statusHtml = '<span class="badge badge-working">قيد العمل</span>';
+            const timeStr = getProgressTimeStr(q.startedAt);
+            statusHtml = `<div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                <span class="badge badge-working">قيد العمل</span>
+                ${q.startedAt ? `<span class="working-time-display" data-start="${q.startedAt}" style="font-size: 0.85rem; color: var(--text-light); text-wrap: nowrap;">${timeStr}</span>` : ''}
+            </div>`;
             actionChangeHtml = `<button class="btn btn-action" onclick="changeStatus('${q._id}', 'done')">تغيير الحالة</button>`;
         } else {
             statusHtml = '<span class="badge badge-done">تم</span>';
@@ -285,5 +292,31 @@ function renderQueues() {
             </td>
         `;
         queueBody.appendChild(tr);
+    });
+}
+
+function formatTime(totalMinutes) {
+    if (totalMinutes < 60) return `${totalMinutes} دقيقة`;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (minutes === 0) return `${hours} ساعة`;
+    return `${hours} ساعة و ${minutes} دقيقة`;
+}
+
+function getProgressTimeStr(startedAt) {
+    if (!startedAt) return '';
+    const diffMs = Date.now() - new Date(startedAt).getTime();
+    if (diffMs < 0) return 'لمدة 0 دقيقة';
+    const diffMins = Math.floor(diffMs / 60000);
+    return `لمدة ${formatTime(diffMins)}`;
+}
+
+function updateProgressTimes() {
+    const timeElements = document.querySelectorAll('.working-time-display');
+    timeElements.forEach(el => {
+        const start = el.getAttribute('data-start');
+        if (start) {
+            el.textContent = getProgressTimeStr(start);
+        }
     });
 }
