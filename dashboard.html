@@ -39,7 +39,7 @@
                     <!-- Add Queue Section -->
                     <section class="card add-customer-card">
                         <div class="card-header">
-                            <h2>إضافة زبون</h2>
+                            <h2>إضافة موعد</h2>
                         </div>
                         <div class="card-body">
                             <form id="add-queue-form" onsubmit="event.preventDefault(); submitQueue();">
@@ -47,6 +47,19 @@
                                     <label for="queue-id">رقم الدور</label>
                                     <input type="text" id="queue-id" placeholder="ادخل رقم الدور" required>
                                 </div>
+
+                                <!-- Appointment date & time -->
+                                <div class="appointment-row">
+                                    <div class="input-wrapper">
+                                        <label for="appointment-date">اليوم</label>
+                                        <input type="date" id="appointment-date" required>
+                                    </div>
+                                    <div class="input-wrapper">
+                                        <label for="appointment-time">الساعة</label>
+                                        <input type="time" id="appointment-time" required>
+                                    </div>
+                                </div>
+
                                 <div class="people-section">
                                     <h3 class="section-title">الأشخاص</h3>
                                     <div class="input-wrapper">
@@ -65,7 +78,7 @@
                                     </ul>
                                 </div>
                                 <button type="submit" class="btn btn-primary" style="margin-top: 16px;">إضافة
-                                    الدور</button>
+                                    الموعد</button>
                             </form>
                         </div>
                     </section>
@@ -91,7 +104,7 @@
                 <div class="main-panel">
                     <section class="card queue-card">
                         <div class="card-header queue-header-flex">
-                            <h2>قائمة الانتظار</h2>
+                            <h2>قائمة المواعيد</h2>
 
                             <div class="filters-group" id="filter-buttons">
                                 <button class="filter-btn active" data-filter="all">الكل</button>
@@ -107,6 +120,8 @@
                                         <tr>
                                             <th>الترتيب</th>
                                             <th>رقم الدور</th>
+                                            <th>اليوم</th>
+                                            <th>الساعة</th>
                                             <th>الأشخاص</th>
                                             <th>الحالة</th>
                                             <th>إجراء</th>

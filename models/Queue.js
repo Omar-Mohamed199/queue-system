@@ -10,7 +10,9 @@ const queueSchema = new mongoose.Schema({
     people: [personSchema],
     status: { type: String, enum: ['waiting', 'working', 'done'], default: 'waiting' },
     order: { type: Number, default: 0 },
-    startedAt: { type: Date }
+    startedAt: { type: Date },
+    date: { type: String, default: '' },
+    time: { type: String, default: '' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Queue', queueSchema);

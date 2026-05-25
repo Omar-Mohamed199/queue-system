@@ -13,18 +13,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Set today's date as default for appointment-date input
+    const appointmentDateInput = document.getElementById('appointment-date');
+    if (appointmentDateInput) {
+        const today = new Date().toISOString().split('T')[0];
+        appointmentDateInput.value = today;
+    }
+
     // Load Queues from API
     fetchQueues();
     setInterval(fetchQueues, 5000);
-    
-    // Average time settings still use localStorage as it's client-side arbitrary logic.
-    const timeInput = document.getElementById('avg-time');
+
+    // Average time settings — client-side arbitrary logic
+    const avgTimeInput = document.getElementById('avg-time');
     const storedTime = localStorage.getItem('avgTime');
     if (storedTime) {
-        timeInput.value = storedTime;
+        avgTimeInput.value = storedTime;
     } else {
         localStorage.setItem('avgTime', '5');
-        timeInput.value = '5';
+        avgTimeInput.value = '5';
     }
 
     // Filter Listeners
@@ -39,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Setup input listeners
+    // Setup input listeners for person inputs
     const personNameInput = document.getElementById('person-name');
     const personPhoneInput = document.getElementById('person-phone');
     const settingsForm = document.getElementById('settings-form');
@@ -58,25 +65,26 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const btn = settingsForm.querySelector('button');
         const originalText = btn.textContent;
-        
-        localStorage.setItem('avgTime', timeInput.value);
-        
+
+        localStorage.setItem('avgTime', avgTimeInput.value);
+
         btn.textContent = 'تم الحفظ!';
         btn.style.backgroundColor = 'var(--success)';
-        
+
         setTimeout(() => {
             btn.textContent = originalText;
             btn.style.backgroundColor = 'var(--secondary)';
         }, 2000);
     });
 
-    // Update progress times every minute
+    // Update working-status elapsed times every minute
     setInterval(updateProgressTimes, 60000);
 });
 
 async function fetchQueues() {
     try {
         const res = await fetch(API_BASE);
+        // Server returns queues already sorted by date ASC, time ASC
         queues = await res.json();
         renderQueues();
     } catch (e) {
@@ -87,19 +95,19 @@ async function fetchQueues() {
 function addPerson() {
     const personNameInput = document.getElementById('person-name');
     const personPhoneInput = document.getElementById('person-phone');
-    
+
     const name = personNameInput.value.trim();
     const phone = personPhoneInput.value.trim();
-    
-    if(!name) {
+
+    if (!name) {
         alert("يرجى إدخال اسم الشخص على الأقل");
         personNameInput.focus();
         return;
     }
-    
+
     currentPeople.push({ name, phone });
     renderPeopleList();
-    
+
     personNameInput.value = '';
     personPhoneInput.value = '';
     personNameInput.focus();
@@ -113,14 +121,14 @@ function removePerson(index) {
 function renderPeopleList() {
     const listEl = document.getElementById('people-list');
     listEl.innerHTML = '';
-    
+
     currentPeople.forEach((p, index) => {
         const li = document.createElement('li');
         li.className = 'person-item';
-        
+
         let text = p.name;
-        if(p.phone) text += ` (${p.phone})`;
-        
+        if (p.phone) text += ` (${p.phone})`;
+
         li.innerHTML = `
             <span>${text}</span>
             <button type="button" class="person-item-remove" onclick="removePerson(${index})">&times;</button>
@@ -131,19 +139,31 @@ function renderPeopleList() {
 
 async function submitQueue() {
     const queueIdInput = document.getElementById('queue-id');
+    const appointmentDateInput = document.getElementById('appointment-date');
+    const appointmentTimeInput = document.getElementById('appointment-time');
+
     const queueId = queueIdInput.value.trim();
-    
-    if(!queueId) return;
-    
-    if(currentPeople.length === 0) {
+    const appointmentDate = appointmentDateInput.value;
+    const appointmentTime = appointmentTimeInput.value;
+
+    if (!queueId) return;
+
+    if (!appointmentDate || !appointmentTime) {
+        alert("يرجى تحديد اليوم والساعة للموعد");
+        return;
+    }
+
+    if (currentPeople.length === 0) {
         alert("يرجى إضافة شخص واحد على الأقل قبل إضافة الدور");
         return;
     }
-    
+
     const payload = {
         queueNumber: queueId,
         people: [...currentPeople],
-        status: 'waiting'
+        status: 'waiting',
+        date: appointmentDate,
+        time: appointmentTime
     };
 
     try {
@@ -153,10 +173,15 @@ async function submitQueue() {
             body: JSON.stringify(payload)
         });
         const newQueue = await res.json();
-        queues.push(newQueue);
-        renderQueues();
-        
+
+        // Re-fetch from server so list is re-sorted by date+time
+        await fetchQueues();
+
+        // Clear form
         queueIdInput.value = '';
+        const today = new Date().toISOString().split('T')[0];
+        appointmentDateInput.value = today;
+        appointmentTimeInput.value = '';
         currentPeople = [];
         renderPeopleList();
     } catch (e) {
@@ -166,15 +191,16 @@ async function submitQueue() {
 
 async function changeStatus(id, newStatus) {
     try {
-        await fetch(`${API_BASE}/${id}`, {
+        const res = await fetch(`${API_BASE}/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus })
         });
-        
+        const updated = await res.json();
+
         const index = queues.findIndex(q => q._id === id);
-        if(index !== -1) {
-            queues[index].status = newStatus;
+        if (index !== -1) {
+            queues[index] = updated;
             renderQueues();
         }
     } catch (e) {
@@ -183,7 +209,7 @@ async function changeStatus(id, newStatus) {
 }
 
 async function deleteQueue(id) {
-    if(confirm('هل أنت متأكد من حذف هذا الدور؟')) {
+    if (confirm('هل أنت متأكد من حذف هذا الموعد؟')) {
         try {
             await fetch(`${API_BASE}/${id}`, {
                 method: 'DELETE'
@@ -196,99 +222,138 @@ async function deleteQueue(id) {
     }
 }
 
-async function moveQueueUp(id) {
-    const idx = queues.findIndex(q => q._id === id);
-    if (idx > 0) {
-        const temp = queues[idx];
-        queues[idx] = queues[idx - 1];
-        queues[idx - 1] = temp;
-        renderQueues(); // Optimistic update
-        await syncOrder();
-    }
+// ─── Appointment-aware waiting time calculation ───────────────────────────────
+/**
+ * Returns the estimated wait time (in minutes) for a queue entry.
+ * Only counts entries on the SAME date with EARLIER appointment time
+ * that are still waiting or working.
+ */
+function calcEstimatedWait(targetQueue, allQueues, avgTime) {
+    const targetDate = targetQueue.date;
+    const targetTime = targetQueue.time;
+
+    const now = Date.now();
+    let time = 0;
+
+    // Only consider queues on the same date with an earlier appointment time
+    const earlier = allQueues.filter(q =>
+        q._id !== targetQueue._id &&
+        q.date === targetDate &&
+        q.time < targetTime &&
+        q.status !== 'done'
+    );
+
+    earlier.forEach(q => {
+        if (q.status === 'working') {
+            let remaining = avgTime;
+            if (q.startedAt) {
+                const diffMs = now - new Date(q.startedAt).getTime();
+                const diffMins = Math.floor(diffMs / 60000);
+                remaining = Math.max(0, avgTime - diffMins);
+            }
+            time += remaining;
+        } else if (q.status === 'waiting') {
+            time += avgTime;
+        }
+    });
+
+    return time;
 }
 
-async function moveQueueDown(id) {
-    const idx = queues.findIndex(q => q._id === id);
-    if (idx !== -1 && idx < queues.length - 1) {
-        const temp = queues[idx];
-        queues[idx] = queues[idx + 1];
-        queues[idx + 1] = temp;
-        renderQueues(); // Optimistic update
-        await syncOrder();
-    }
+/**
+ * Returns the count of people ahead of targetQueue on the same date
+ * with earlier appointment times that are still waiting or working.
+ */
+function calcPeopleAhead(targetQueue, allQueues) {
+    const targetDate = targetQueue.date;
+    const targetTime = targetQueue.time;
+
+    return allQueues.filter(q =>
+        q._id !== targetQueue._id &&
+        q.date === targetDate &&
+        q.time < targetTime &&
+        q.status !== 'done'
+    ).length;
 }
 
-async function syncOrder() {
-    const orderedIds = queues.map(q => q._id);
-    try {
-        await fetch(`${API_BASE}/reorder/bulk`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderedIds })
-        });
-    } catch (e) {
-        console.error('Error syncing order', e);
-    }
-}
-
+// ─── Render ───────────────────────────────────────────────────────────────────
 function renderQueues() {
     const queueBody = document.getElementById('queue-body');
     queueBody.innerHTML = '';
-    
+
+    const avgTime = parseInt(localStorage.getItem('avgTime') || '5', 10);
+
+    // queues already sorted by date+time from server
     let displayedQueues = queues;
     if (currentFilter !== 'all') {
         displayedQueues = queues.filter(q => q.status === currentFilter);
     }
-    
+
     displayedQueues.forEach((q, displayIndex) => {
-        // Use real array index for reorder boundaries regardless of visual filter state
-        const realIndex = queues.findIndex(item => item._id === q._id);
-        
+        // Overall rank in the full (unfiltered, date+time sorted) list
+        const globalRank = queues.findIndex(item => item._id === q._id) + 1;
+
         const namesString = q.people.map(p => p.name).join(' - ');
-        
+
+        // Format date for display (YYYY-MM-DD → DD/MM/YYYY)
+        let dateDisplay = '-';
+        if (q.date) {
+            const parts = q.date.split('-');
+            if (parts.length === 3) {
+                dateDisplay = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+        }
+
+        const timeDisplay = q.time || '-';
+
+        // Status badge + working timer
         let statusHtml = '';
         let actionChangeHtml = '';
-        
+
         if (q.status === 'waiting') {
-            statusHtml = '<span class="badge badge-waiting">منتظر</span>';
+            // Show estimated wait for this appointment
+            const waitMins = calcEstimatedWait(q, queues, avgTime);
+            const waitLabel = waitMins > 0
+                ? `<span class="appt-wait">وقت الانتظار المتوقع: ${formatTime(waitMins)}</span>`
+                : '';
+
+            statusHtml = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                <span class="badge badge-waiting">منتظر</span>
+                ${waitLabel}
+            </div>`;
             actionChangeHtml = `<button class="btn btn-action" onclick="changeStatus('${q._id}', 'working')">تغيير الحالة</button>`;
+
         } else if (q.status === 'working') {
             const timeStr = getProgressTimeStr(q.startedAt);
-            statusHtml = `<div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+            statusHtml = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
                 <span class="badge badge-working">قيد العمل</span>
-                ${q.startedAt ? `<span class="working-time-display" data-start="${q.startedAt}" style="font-size: 0.85rem; color: var(--text-light); text-wrap: nowrap;">${timeStr}</span>` : ''}
+                ${q.startedAt ? `<span class="working-time-display" data-start="${q.startedAt}" style="font-size:0.85rem;color:var(--text-light);text-wrap:nowrap;">${timeStr}</span>` : ''}
             </div>`;
             actionChangeHtml = `<button class="btn btn-action" onclick="changeStatus('${q._id}', 'done')">تغيير الحالة</button>`;
+
         } else {
             statusHtml = '<span class="badge badge-done">تم</span>';
             actionChangeHtml = `<button class="btn btn-disabled" disabled>تغيير الحالة</button>`;
         }
-        
-        const isUpDisabled = realIndex === 0 ? 'disabled' : '';
-        const isDownDisabled = realIndex === queues.length - 1 ? 'disabled' : '';
-        
+
         const rowClass = q.status === 'working' ? 'row-working' : '';
-        
+
         const tr = document.createElement('tr');
-        if(rowClass) tr.className = rowClass;
-        
+        if (rowClass) tr.className = rowClass;
+
         tr.innerHTML = `
             <td>
-                <div class="rank-cell">
-                    <span style="font-weight: bold; width: 24px;">${realIndex + 1}</span>
-                    <div class="reorder-btns">
-                        <button class="btn-icon" onclick="moveQueueUp('${q._id}')" ${isUpDisabled} title="تحريك لأعلى">⬆️</button>
-                        <button class="btn-icon" onclick="moveQueueDown('${q._id}')" ${isDownDisabled} title="تحريك لأسفل">⬇️</button>
-                    </div>
-                </div>
+                <span style="font-weight:bold;">${globalRank}</span>
             </td>
             <td>#${q.queueNumber}</td>
+            <td class="appt-date-cell">${dateDisplay}</td>
+            <td class="appt-time-cell">${timeDisplay}</td>
             <td><div class="people-display">${namesString}</div></td>
             <td class="status-cell">${statusHtml}</td>
             <td class="action-cell">
                 <div class="action-group">
                     ${actionChangeHtml}
-                    <button class="btn btn-delete" onclick="deleteQueue('${q._id}')">حذف الدور</button>
+                    <button class="btn btn-delete" onclick="deleteQueue('${q._id}')">حذف</button>
                 </div>
             </td>
         `;
@@ -296,6 +361,7 @@ function renderQueues() {
     });
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatTime(totalMinutes) {
     if (totalMinutes < 60) return `${totalMinutes} دقيقة`;
     const hours = Math.floor(totalMinutes / 60);

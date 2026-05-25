@@ -2,17 +2,18 @@ const express = require('express');
 const router = express.Router();
 const Queue = require('../models/Queue');
 
-// GET all queues
+// GET all queues — sorted by appointment date then time
 router.get('/', async (req, res) => {
     try {
-        const queues = await Queue.find().sort({ order: 1 });
+        // Primary sort: date ASC, then time ASC, then createdAt for ties/undated entries
+        const queues = await Queue.find().sort({ date: 1, time: 1, createdAt: 1 });
         res.json(queues);
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 });
 
-// POST new queue
+// POST new queue — saves appointment date and time
 router.post('/', async (req, res) => {
     try {
         const highestQueue = await Queue.findOne().sort('-order');
@@ -25,7 +26,9 @@ router.post('/', async (req, res) => {
             queueNumber: req.body.queueNumber,
             people: req.body.people,
             status: req.body.status || 'waiting',
-            order: nextOrder
+            order: nextOrder,
+            date: req.body.date || '',
+            time: req.body.time || ''
         });
 
         const newQueue = await queue.save();
@@ -43,7 +46,7 @@ router.put('/:id', async (req, res) => {
         } else if (req.body.status === 'waiting') {
             req.body.startedAt = null;
         }
-        
+
         const updatedQueue = await Queue.findByIdAndUpdate(req.params.id, req.body, { new: true });
         res.json(updatedQueue);
     } catch (err) {
@@ -61,18 +64,18 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
-// PUT reorder
+// PUT reorder (kept for backward compatibility)
 router.put('/reorder/bulk', async (req, res) => {
     try {
         const { orderedIds } = req.body;
         if (!orderedIds || !Array.isArray(orderedIds)) {
             return res.status(400).json({ message: 'Invalid sort array' });
         }
-        
+
         for (let i = 0; i < orderedIds.length; i++) {
             await Queue.findByIdAndUpdate(orderedIds[i], { order: i });
         }
-        
+
         res.json({ message: 'Order updated' });
     } catch (err) {
         res.status(500).json({ message: err.message });

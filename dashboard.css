@@ -440,9 +440,44 @@ body {
     color: #065f46;
 }
 
+/* Appointment row — side-by-side date + time inputs */
+.appointment-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 0;
+}
+
+.appointment-row .input-wrapper {
+    margin-bottom: 0;
+}
+
+/* Appointment table cells */
+.appt-date-cell,
+.appt-time-cell {
+    font-size: 13px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Estimated wait label inside status cell */
+.appt-wait {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    background: rgba(100, 116, 139, 0.1);
+    padding: 2px 8px;
+    border-radius: 99px;
+    white-space: nowrap;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
     .grid-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .appointment-row {
         grid-template-columns: 1fr;
     }
 }
