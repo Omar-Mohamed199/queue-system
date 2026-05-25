@@ -4,8 +4,18 @@ function formatTime(totalMinutes) {
     if (totalMinutes < 60) return `${totalMinutes} دقيقة`;
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-    if (minutes === 0) return `${hours} ساعة`;
-    return `${hours} ساعة و ${minutes} دقيقة`;
+    
+    let hourStr = '';
+    if (hours === 1) {
+        hourStr = '1 ساعة';
+    } else if (hours === 2) {
+        hourStr = '2 ساعتين';
+    } else {
+        hourStr = `${hours} ساعات`;
+    }
+    
+    if (minutes === 0) return hourStr;
+    return `${hourStr} و ${minutes} دقيقة`;
 }
 
 function timeToMinutes(timeStr) {
