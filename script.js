@@ -8,6 +8,103 @@ function formatTime(totalMinutes) {
     return `${hours} ساعة و ${minutes} دقيقة`;
 }
 
+function timeToMinutes(timeStr) {
+    if (!timeStr) return null;
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 60 + m;
+}
+
+function formatTo12Hour(timeStr) {
+    if (!timeStr) return '-';
+    const [hourStr, minuteStr] = timeStr.split(':');
+    let hour = parseInt(hourStr, 10);
+    const minute = minuteStr || '00';
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12;
+    if (hour === 0) hour = 12;
+    return `${hour}:${minute} ${ampm}`;
+}
+
+function calcEstimatedWait(targetQueue, allQueues, avgTime) {
+    const targetDate = targetQueue.date;
+    if (!targetDate) return 0;
+
+    const targetTimeMin = timeToMinutes(targetQueue.time);
+    if (targetTimeMin === null) return 0;
+
+    // Get all active (not done) queues on the same date, sorted by order
+    const activeQueues = allQueues
+        .filter(q => q.date === targetDate && q.status !== 'done')
+        .sort((a, b) => a.order - b.order);
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    
+    let simTime = 0;
+    let baseTime = 0;
+    
+    if (targetDate === todayStr) {
+        const currentMins = now.getHours() * 60 + now.getMinutes();
+        simTime = currentMins;
+        baseTime = currentMins;
+    } else {
+        const apptTimes = activeQueues
+            .map(q => timeToMinutes(q.time))
+            .filter(t => t !== null);
+        const firstApptTime = apptTimes.length > 0 ? Math.min(...apptTimes) : 0;
+        simTime = firstApptTime;
+        baseTime = firstApptTime;
+    }
+
+    let targetStartSimTime = null;
+
+    for (const q of activeQueues) {
+        const apptTime = timeToMinutes(q.time);
+        if (apptTime === null) continue;
+
+        let serviceStart = 0;
+        let serviceDuration = avgTime;
+
+        if (q.status === 'working') {
+            serviceStart = simTime;
+            if (q.startedAt && targetDate === todayStr) {
+                const elapsedMs = now.getTime() - new Date(q.startedAt).getTime();
+                const elapsedMins = Math.floor(elapsedMs / 60000);
+                serviceDuration = Math.max(0, avgTime - elapsedMins);
+            } else {
+                serviceDuration = avgTime;
+            }
+        } else {
+            serviceStart = Math.max(simTime, apptTime);
+        }
+
+        if (q._id.toString() === targetQueue._id.toString()) {
+            targetStartSimTime = serviceStart;
+            break;
+        }
+
+        simTime = serviceStart + serviceDuration;
+    }
+
+    if (targetStartSimTime === null) {
+        return 0;
+    }
+
+    const waitMinutes = targetStartSimTime - baseTime;
+    return Math.max(0, waitMinutes);
+}
+
+function calcPeopleAhead(targetQueue, allQueues) {
+    const targetDate = targetQueue.date;
+    const targetIdx = allQueues.findIndex(q => q._id === targetQueue._id);
+    if (targetIdx === -1) return 0;
+    
+    return allQueues.slice(0, targetIdx).filter(q => 
+        q.date === targetDate && 
+        q.status !== 'done'
+    ).length;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const inputSection = document.getElementById('input-section');
     const resultSection = document.getElementById('result-section');
@@ -21,8 +118,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusText = document.getElementById('status-text');
     const progressBar = document.getElementById('progress-bar');
 
-    // Optional: show appointment date/time if the element exists
-    const resAppointment = document.getElementById('res-appointment');
+    const resName = document.getElementById('res-name');
+    const resDate = document.getElementById('res-date');
+    const resTimeDisplay = document.getElementById('res-time-display');
 
     let currentNumber = null;
     let pollInterval = null;
@@ -37,7 +135,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const res = await fetch(API_BASE);
-            // Server returns queues sorted by date ASC, time ASC
             const queues = await res.json();
 
             const targetQ = queues.find(q => q.queueNumber === currentNumber);
@@ -50,7 +147,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     queueInput.value = '';
                     currentNumber = null;
                 } else {
-                    // Queue deleted or not found — reset screen
                     resetScreen();
                 }
                 return;
@@ -59,40 +155,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const storedTime = localStorage.getItem('avgTime') || 5;
             const avgTime = parseInt(storedTime, 10);
 
-            // ── Appointment-aware calculations ────────────────────────────────
-            // Only count entries on the SAME date with an EARLIER appointment time
-            // that are not yet done.
-            const targetDate = targetQ.date;
-            const targetTime = targetQ.time;
-
             let aheadCount = 0;
             let time = 0;
 
             if (targetQ.status !== 'done' && targetQ.status !== 'working') {
-                const now = Date.now();
-
-                const sameDateEarlier = queues.filter(q =>
-                    q._id !== targetQ._id &&
-                    q.date === targetDate &&
-                    q.time < targetTime &&
-                    q.status !== 'done'
-                );
-
-                sameDateEarlier.forEach(qAhead => {
-                    aheadCount++;
-                    if (qAhead.status === 'working') {
-                        let remaining = avgTime;
-                        if (qAhead.startedAt) {
-                            const diffMs = now - new Date(qAhead.startedAt).getTime();
-                            const diffMins = Math.floor(diffMs / 60000);
-                            remaining = Math.max(0, avgTime - diffMins);
-                        }
-                        time += remaining;
-                    } else {
-                        // waiting
-                        time += avgTime;
-                    }
-                });
+                aheadCount = calcPeopleAhead(targetQ, queues);
+                time = calcEstimatedWait(targetQ, queues, avgTime);
             }
 
             // ── Status display ────────────────────────────────────────────────
@@ -120,21 +188,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
             resNumber.textContent = `#${currentNumber}`;
             resAhead.textContent = (targetQ.status === 'done' || targetQ.status === 'working') ? '0' : aheadCount;
-            resTime.textContent = time > 0 ? formatTime(time) : 'جاهز';
+            resTime.textContent = (targetQ.status === 'done' || targetQ.status === 'working') ? 'جاهز' : (time > 0 ? formatTime(time) : 'جاهز');
             statusText.textContent = status;
 
-            // Show appointment date/time if the element exists in index.html
-            if (resAppointment) {
-                if (targetQ.date && targetQ.time) {
+            // Render name, date, time display
+            if (resName) {
+                resName.textContent = targetQ.people.map(p => p.name).join(' - ');
+            }
+            if (resDate) {
+                let dateFormatted = '-';
+                if (targetQ.date) {
                     const dateParts = targetQ.date.split('-');
-                    const dateFormatted = dateParts.length === 3
-                        ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`
-                        : targetQ.date;
-                    resAppointment.textContent = `${dateFormatted} — ${targetQ.time}`;
-                    resAppointment.closest('.result-item') && (resAppointment.closest('.result-item').style.display = '');
-                } else {
-                    resAppointment.closest('.result-item') && (resAppointment.closest('.result-item').style.display = 'none');
+                    dateFormatted = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : targetQ.date;
                 }
+                resDate.textContent = dateFormatted;
+            }
+            if (resTimeDisplay) {
+                resTimeDisplay.textContent = formatTo12Hour(targetQ.time);
             }
 
             if (isInitial) {

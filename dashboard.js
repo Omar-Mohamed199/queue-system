@@ -84,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
 async function fetchQueues() {
     try {
         const res = await fetch(API_BASE);
-        // Server returns queues already sorted by date ASC, time ASC
         queues = await res.json();
         renderQueues();
     } catch (e) {
@@ -172,7 +171,7 @@ async function submitQueue() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        const newQueue = await res.json();
+        await res.json();
 
         // Re-fetch from server so list is re-sorted by date+time
         await fetchQueues();
@@ -222,56 +221,194 @@ async function deleteQueue(id) {
     }
 }
 
-// ─── Appointment-aware waiting time calculation ───────────────────────────────
-/**
- * Returns the estimated wait time (in minutes) for a queue entry.
- * Only counts entries on the SAME date with EARLIER appointment time
- * that are still waiting or working.
- */
-function calcEstimatedWait(targetQueue, allQueues, avgTime) {
-    const targetDate = targetQueue.date;
-    const targetTime = targetQueue.time;
-
-    const now = Date.now();
-    let time = 0;
-
-    // Only consider queues on the same date with an earlier appointment time
-    const earlier = allQueues.filter(q =>
-        q._id !== targetQueue._id &&
-        q.date === targetDate &&
-        q.time < targetTime &&
-        q.status !== 'done'
-    );
-
-    earlier.forEach(q => {
-        if (q.status === 'working') {
-            let remaining = avgTime;
-            if (q.startedAt) {
-                const diffMs = now - new Date(q.startedAt).getTime();
-                const diffMins = Math.floor(diffMs / 60000);
-                remaining = Math.max(0, avgTime - diffMins);
-            }
-            time += remaining;
-        } else if (q.status === 'waiting') {
-            time += avgTime;
+// ─── Manual Reorder ───────────────────────────────────────────────────────────
+async function moveQueue(id, direction) {
+    try {
+        const res = await fetch(`${API_BASE}/reorder/move`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, direction })
+        });
+        if (res.ok) {
+            queues = await res.json();
+            renderQueues();
         }
-    });
+    } catch (e) {
+        console.error('Error reordering queue', e);
+    }
+}
 
-    return time;
+// ─── Inline Appointment Edit ──────────────────────────────────────────────────
+function toggleEditRow(id) {
+    const editRow = document.getElementById(`edit-row-${id}`);
+    if (!editRow) return;
+    const isHidden = editRow.style.display === 'none' || editRow.style.display === '';
+    editRow.style.display = isHidden ? 'table-row' : 'none';
+}
+
+async function saveAppointment(id) {
+    const dateInput = document.getElementById(`edit-date-${id}`);
+    const timeInput = document.getElementById(`edit-time-${id}`);
+
+    if (!dateInput || !timeInput) return;
+
+    const newDate = dateInput.value;
+    const newTime = timeInput.value;
+
+    if (!newDate || !newTime) {
+        alert('يرجى تحديد التاريخ والوقت');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/${id}/appointment`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date: newDate, time: newTime })
+        });
+        if (res.ok) {
+            await fetchQueues();
+        }
+    } catch (e) {
+        console.error('Error saving appointment', e);
+    }
+}
+
+// ─── Time Formatting ──────────────────────────────────────────────────────────
+/**
+ * Converts "HH:MM" (24-hour) to "H:MM AM/PM" (12-hour).
+ * Returns '-' if input is falsy.
+ */
+function formatTo12Hour(timeStr) {
+    if (!timeStr) return '-';
+    const [hourStr, minuteStr] = timeStr.split(':');
+    let hour = parseInt(hourStr, 10);
+    const minute = minuteStr || '00';
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12;
+    if (hour === 0) hour = 12;
+    return `${hour}:${minute} ${ampm}`;
 }
 
 /**
- * Returns the count of people ahead of targetQueue on the same date
- * with earlier appointment times that are still waiting or working.
+ * Formats duration in minutes to Arabic readable string.
+ */
+function formatDuration(totalMinutes) {
+    if (totalMinutes <= 0) return 'جاهز';
+    if (totalMinutes < 60) return `${totalMinutes} دقيقة`;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (minutes === 0) return `${hours} ساعة`;
+    return `${hours} ساعة و ${minutes} دقيقة`;
+}
+
+/**
+ * Converts "HH:MM" string to total minutes from midnight.
+ */
+function timeToMinutes(timeStr) {
+    if (!timeStr) return null;
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 60 + m;
+}
+
+// ─── Improved Wait-Time Calculation ──────────────────────────────────────────
+/**
+ * Calculates realistic estimated wait time (in minutes) for a queue entry.
+ *
+ * Algorithm:
+ *  1. Find all active (non-done) entries on the same date.
+ *  2. Sort them by order.
+ *  3. Simulate the timeline:
+ *     - If working: starts at current time, takes remaining service duration (max 0, avgTime - elapsed).
+ *     - If waiting: starts at Math.max(currentTime/simTime, appointmentTime), takes avgTime.
+ *  4. Return the difference between simulated start time and current time.
+ */
+function calcEstimatedWait(targetQueue, allQueues, avgTime) {
+    const targetDate = targetQueue.date;
+    if (!targetDate) return 0;
+
+    const targetTimeMin = timeToMinutes(targetQueue.time);
+    if (targetTimeMin === null) return 0;
+
+    // Get all active (not done) queues on the same date, sorted by order
+    const activeQueues = allQueues
+        .filter(q => q.date === targetDate && q.status !== 'done')
+        .sort((a, b) => a.order - b.order);
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    
+    // Determine the start time of the timeline
+    let simTime = 0;
+    let baseTime = 0;
+    
+    if (targetDate === todayStr) {
+        // Today: simulation starts at the current time
+        const currentMins = now.getHours() * 60 + now.getMinutes();
+        simTime = currentMins;
+        baseTime = currentMins;
+    } else {
+        // Future date: simulation starts at the time of the first appointment on that day
+        const apptTimes = activeQueues
+            .map(q => timeToMinutes(q.time))
+            .filter(t => t !== null);
+        const firstApptTime = apptTimes.length > 0 ? Math.min(...apptTimes) : 0;
+        simTime = firstApptTime;
+        baseTime = firstApptTime;
+    }
+
+    let targetStartSimTime = null;
+
+    // Simulate service for each active queue entry in order
+    for (const q of activeQueues) {
+        const apptTime = timeToMinutes(q.time);
+        if (apptTime === null) continue;
+
+        let serviceStart = 0;
+        let serviceDuration = avgTime;
+
+        if (q.status === 'working') {
+            // Already in progress
+            serviceStart = simTime; // starts now
+            if (q.startedAt && targetDate === todayStr) {
+                const elapsedMs = now.getTime() - new Date(q.startedAt).getTime();
+                const elapsedMins = Math.floor(elapsedMs / 60000);
+                serviceDuration = Math.max(0, avgTime - elapsedMins);
+            } else {
+                serviceDuration = avgTime;
+            }
+        } else {
+            // Waiting: must start at or after its appointment time, and at or after simTime
+            serviceStart = Math.max(simTime, apptTime);
+        }
+
+        if (q._id.toString() === targetQueue._id.toString()) {
+            targetStartSimTime = serviceStart;
+            break;
+        }
+
+        // Advance simulation time to when this service finishes
+        simTime = serviceStart + serviceDuration;
+    }
+
+    if (targetStartSimTime === null) {
+        return 0;
+    }
+
+    const waitMinutes = targetStartSimTime - baseTime;
+    return Math.max(0, waitMinutes);
+}
+
+/**
+ * Returns the count of people/entries ahead of targetQueue (same date, sorted position, not done).
  */
 function calcPeopleAhead(targetQueue, allQueues) {
     const targetDate = targetQueue.date;
-    const targetTime = targetQueue.time;
-
-    return allQueues.filter(q =>
-        q._id !== targetQueue._id &&
-        q.date === targetDate &&
-        q.time < targetTime &&
+    const targetIdx = allQueues.findIndex(q => q._id === targetQueue._id);
+    if (targetIdx === -1) return 0;
+    
+    return allQueues.slice(0, targetIdx).filter(q => 
+        q.date === targetDate && 
         q.status !== 'done'
     ).length;
 }
@@ -283,19 +420,19 @@ function renderQueues() {
 
     const avgTime = parseInt(localStorage.getItem('avgTime') || '5', 10);
 
-    // queues already sorted by date+time from server
     let displayedQueues = queues;
     if (currentFilter !== 'all') {
         displayedQueues = queues.filter(q => q.status === currentFilter);
     }
 
     displayedQueues.forEach((q, displayIndex) => {
-        // Overall rank in the full (unfiltered, date+time sorted) list
         const globalRank = queues.findIndex(item => item._id === q._id) + 1;
+        const isFirst = displayIndex === 0;
+        const isLast = displayIndex === displayedQueues.length - 1;
 
         const namesString = q.people.map(p => p.name).join(' - ');
 
-        // Format date for display (YYYY-MM-DD → DD/MM/YYYY)
+        // Format date: YYYY-MM-DD → DD/MM/YYYY
         let dateDisplay = '-';
         if (q.date) {
             const parts = q.date.split('-');
@@ -304,17 +441,17 @@ function renderQueues() {
             }
         }
 
-        const timeDisplay = q.time || '-';
+        // 12-hour time display
+        const timeDisplay = formatTo12Hour(q.time);
 
         // Status badge + working timer
         let statusHtml = '';
         let actionChangeHtml = '';
 
         if (q.status === 'waiting') {
-            // Show estimated wait for this appointment
             const waitMins = calcEstimatedWait(q, queues, avgTime);
             const waitLabel = waitMins > 0
-                ? `<span class="appt-wait">وقت الانتظار المتوقع: ${formatTime(waitMins)}</span>`
+                ? `<span class="appt-wait">وقت الانتظار المتوقع: ${formatDuration(waitMins)}</span>`
                 : '';
 
             statusHtml = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
@@ -338,12 +475,23 @@ function renderQueues() {
 
         const rowClass = q.status === 'working' ? 'row-working' : '';
 
+        // Reorder buttons: only show when filter is 'all' (otherwise positions are misleading)
+        const reorderHtml = currentFilter === 'all' ? `
+            <div class="reorder-btns">
+                <button class="btn-reorder" title="تحريك للأعلى" onclick="moveQueue('${q._id}', 'up')" ${isFirst ? 'disabled' : ''}>▲</button>
+                <button class="btn-reorder" title="تحريك للأسفل" onclick="moveQueue('${q._id}', 'down')" ${isLast ? 'disabled' : ''}>▼</button>
+            </div>` : '';
+
         const tr = document.createElement('tr');
         if (rowClass) tr.className = rowClass;
+        tr.setAttribute('data-id', q._id);
 
         tr.innerHTML = `
             <td>
-                <span style="font-weight:bold;">${globalRank}</span>
+                <div class="rank-cell">
+                    ${reorderHtml}
+                    <span style="font-weight:bold;">${globalRank}</span>
+                </div>
             </td>
             <td>#${q.queueNumber}</td>
             <td class="appt-date-cell">${dateDisplay}</td>
@@ -353,11 +501,38 @@ function renderQueues() {
             <td class="action-cell">
                 <div class="action-group">
                     ${actionChangeHtml}
+                    <button class="btn btn-edit" onclick="toggleEditRow('${q._id}')">تعديل</button>
                     <button class="btn btn-delete" onclick="deleteQueue('${q._id}')">حذف</button>
                 </div>
             </td>
         `;
         queueBody.appendChild(tr);
+
+        // Inline edit row (hidden by default)
+        const editTr = document.createElement('tr');
+        editTr.id = `edit-row-${q._id}`;
+        editTr.className = 'inline-edit-row';
+        editTr.style.display = 'none';
+        editTr.innerHTML = `
+            <td colspan="7">
+                <div class="inline-edit-form">
+                    <span class="inline-edit-label">تعديل الموعد:</span>
+                    <div class="inline-edit-fields">
+                        <div class="inline-edit-field">
+                            <label for="edit-date-${q._id}">التاريخ</label>
+                            <input type="date" id="edit-date-${q._id}" value="${q.date || ''}" />
+                        </div>
+                        <div class="inline-edit-field">
+                            <label for="edit-time-${q._id}">الوقت</label>
+                            <input type="time" id="edit-time-${q._id}" value="${q.time || ''}" />
+                        </div>
+                        <button class="btn btn-save" onclick="saveAppointment('${q._id}')">حفظ</button>
+                        <button class="btn btn-cancel" onclick="toggleEditRow('${q._id}')">إلغاء</button>
+                    </div>
+                </div>
+            </td>
+        `;
+        queueBody.appendChild(editTr);
     });
 }
 

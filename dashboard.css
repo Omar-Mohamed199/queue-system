@@ -486,3 +486,145 @@ body {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* Reorder Buttons styling */
+.btn-reorder {
+    background: var(--bg-light);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: var(--transition);
+}
+
+.btn-reorder:hover:not(:disabled) {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.btn-reorder:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Edit Button styling */
+.btn-edit {
+    background-color: transparent;
+    color: var(--primary);
+    padding: 8px 12px;
+    width: auto;
+    font-size: 13px;
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Cairo', sans-serif;
+    font-weight: 600;
+    transition: var(--transition);
+}
+
+.btn-edit:hover {
+    background-color: var(--primary);
+    color: white;
+}
+
+/* Inline Edit Row Form styling */
+.inline-edit-row {
+    background-color: var(--bg-light);
+}
+
+.inline-edit-form {
+    padding: 16px 24px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background-color: var(--bg-card);
+    margin: 8px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.inline-edit-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 4px;
+}
+
+.inline-edit-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px;
+}
+
+.inline-edit-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 140px;
+}
+
+.inline-edit-field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.inline-edit-field input {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 13px;
+    outline: none;
+    background-color: var(--bg-light);
+    transition: var(--transition);
+}
+
+.inline-edit-field input:focus {
+    border-color: var(--primary);
+    background-color: white;
+}
+
+.btn-save {
+    background-color: var(--success);
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-save:hover {
+    background-color: var(--success-hover);
+}
+
+.btn-cancel {
+    background-color: var(--secondary);
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-cancel:hover {
+    background-color: var(--secondary-hover);
+}
