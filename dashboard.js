@@ -138,10 +138,12 @@ function renderPeopleList() {
 
 async function submitQueue() {
     const queueIdInput = document.getElementById('queue-id');
+    const queueWeightInput = document.getElementById('queue-weight');
     const appointmentDateInput = document.getElementById('appointment-date');
     const appointmentTimeInput = document.getElementById('appointment-time');
 
     const queueId = queueIdInput.value.trim();
+    const queueWeight = queueWeightInput ? queueWeightInput.value.trim() : '';
     const appointmentDate = appointmentDateInput.value;
     const appointmentTime = appointmentTimeInput.value;
 
@@ -162,7 +164,8 @@ async function submitQueue() {
         people: [...currentPeople],
         status: 'waiting',
         date: appointmentDate,
-        time: appointmentTime
+        time: appointmentTime,
+        weight: queueWeight
     };
 
     try {
@@ -178,6 +181,7 @@ async function submitQueue() {
 
         // Clear form
         queueIdInput.value = '';
+        if (queueWeightInput) queueWeightInput.value = '';
         const today = new Date().toISOString().split('T')[0];
         appointmentDateInput.value = today;
         appointmentTimeInput.value = '';
@@ -249,11 +253,13 @@ function toggleEditRow(id) {
 async function saveAppointment(id) {
     const dateInput = document.getElementById(`edit-date-${id}`);
     const timeInput = document.getElementById(`edit-time-${id}`);
+    const weightInput = document.getElementById(`edit-weight-${id}`);
 
     if (!dateInput || !timeInput) return;
 
     const newDate = dateInput.value;
     const newTime = timeInput.value;
+    const newWeight = weightInput ? weightInput.value.trim() : '';
 
     if (!newDate || !newTime) {
         alert('يرجى تحديد التاريخ والوقت');
@@ -264,7 +270,7 @@ async function saveAppointment(id) {
         const res = await fetch(`${API_BASE}/${id}/appointment`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ date: newDate, time: newTime })
+            body: JSON.stringify({ date: newDate, time: newTime, weight: newWeight })
         });
         if (res.ok) {
             await fetchQueues();
@@ -497,6 +503,7 @@ function renderQueues() {
             <td class="appt-date-cell">${dateDisplay}</td>
             <td class="appt-time-cell">${timeDisplay}</td>
             <td><div class="people-display">${namesString}</div></td>
+            <td>${q.weight || '-'}</td>
             <td class="status-cell">${statusHtml}</td>
             <td class="action-cell">
                 <div class="action-group">
@@ -514,7 +521,7 @@ function renderQueues() {
         editTr.className = 'inline-edit-row';
         editTr.style.display = 'none';
         editTr.innerHTML = `
-            <td colspan="7">
+            <td colspan="8">
                 <div class="inline-edit-form">
                     <span class="inline-edit-label">تعديل الموعد:</span>
                     <div class="inline-edit-fields">
@@ -525,6 +532,10 @@ function renderQueues() {
                         <div class="inline-edit-field">
                             <label for="edit-time-${q._id}">الوقت</label>
                             <input type="time" id="edit-time-${q._id}" value="${q.time || ''}" />
+                        </div>
+                        <div class="inline-edit-field">
+                            <label for="edit-weight-${q._id}">وزن العجل</label>
+                            <input type="text" id="edit-weight-${q._id}" value="${q.weight || ''}" />
                         </div>
                         <button class="btn btn-save" onclick="saveAppointment('${q._id}')">حفظ</button>
                         <button class="btn btn-cancel" onclick="toggleEditRow('${q._id}')">إلغاء</button>

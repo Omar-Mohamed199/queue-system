@@ -43,10 +43,15 @@
                         </div>
                         <div class="card-body">
                             <form id="add-queue-form" onsubmit="event.preventDefault(); submitQueue();">
-                                <div class="input-wrapper">
-                                    <label for="queue-id">رقم الدور</label>
-                                    <input type="text" id="queue-id" placeholder="ادخل رقم الدور" required>
-                                </div>
+                                 <div class="input-wrapper">
+                                     <label for="queue-id">رقم الدور</label>
+                                     <input type="text" id="queue-id" placeholder="ادخل رقم الدور" required>
+                                 </div>
+
+                                 <div class="input-wrapper">
+                                     <label for="queue-weight">وزن العجل</label>
+                                     <input type="text" id="queue-weight" placeholder="ادخل وزن العجل">
+                                 </div>
 
                                 <!-- Appointment date & time -->
                                 <div class="appointment-row">
@@ -123,6 +128,7 @@
                                             <th>اليوم</th>
                                             <th>الساعة</th>
                                             <th>الأشخاص</th>
+                                            <th>وزن العجل</th>
                                             <th>الحالة</th>
                                             <th>إجراء</th>
                                         </tr>

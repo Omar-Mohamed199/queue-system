@@ -23,6 +23,7 @@ router.post('/', async (req, res) => {
             status: req.body.status || 'waiting',
             date: req.body.date || '',
             time: req.body.time || '',
+            weight: req.body.weight || '',
             order: 0
         });
 
@@ -148,10 +149,10 @@ router.put('/reorder/move', async (req, res) => {
     }
 });
 
-// PUT /:id/appointment — update appointment date and/or time for a queue entry
+// PUT /:id/appointment — update appointment date, time and/or weight for a queue entry
 router.put('/:id/appointment', async (req, res) => {
     try {
-        const { date, time } = req.body;
+        const { date, time, weight } = req.body;
         const target = await Queue.findById(req.params.id);
         if (!target) {
             return res.status(404).json({ message: 'Queue entry not found' });
@@ -159,6 +160,7 @@ router.put('/:id/appointment', async (req, res) => {
 
         if (date !== undefined) target.date = date;
         if (time !== undefined) target.time = time;
+        if (weight !== undefined) target.weight = weight;
 
         await target.save();
 

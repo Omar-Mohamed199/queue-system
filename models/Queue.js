@@ -12,7 +12,8 @@ const queueSchema = new mongoose.Schema({
     order: { type: Number, default: 0 },
     startedAt: { type: Date },
     date: { type: String, default: '' },
-    time: { type: String, default: '' }
+    time: { type: String, default: '' },
+    weight: { type: String, default: '' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Queue', queueSchema);

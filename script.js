@@ -119,6 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressBar = document.getElementById('progress-bar');
 
     const resName = document.getElementById('res-name');
+    const resWeight = document.getElementById('res-weight');
     const resDate = document.getElementById('res-date');
     const resTimeDisplay = document.getElementById('res-time-display');
 
@@ -194,6 +195,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Render name, date, time display
             if (resName) {
                 resName.textContent = targetQ.people.map(p => p.name).join(' - ');
+            }
+            if (resWeight) {
+                resWeight.textContent = targetQ.weight || '-';
             }
             if (resDate) {
                 let dateFormatted = '-';
